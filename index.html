@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>CutOptim Local — Cutting Layout Optimizer</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="CutOptim">
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --text:#1c2128; --muted:#5b6472; --border:#d8dce2;
+  --accent:#2563eb; --accent-hover:#1d4ed8; --danger:#dc2626; --danger-bg:#fef2f2;
+  --ok-bg:#ecfdf5; --ok-text:#065f46; --input-bg:#ffffff; --shadow:0 1px 2px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#14161a; --panel:#1d2026; --text:#e6e8eb; --muted:#9aa3af; --border:#2c313a;
+    --accent:#3b82f6; --accent-hover:#60a5fa; --danger:#f87171; --danger-bg:#3b1c1c;
+    --ok-bg:#0f2b22; --ok-text:#6ee7b7; --input-bg:#12141a; --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+header{padding:16px 24px;border-bottom:1px solid var(--border);background:var(--panel);display:flex;flex-wrap:wrap;align-items:center;gap:16px;position:sticky;top:0;z-index:10;}
+header h1{font-size:18px;margin:0;flex:1 1 auto;}
+header h1 small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px;}
+.tabs{display:flex;gap:4px;background:var(--bg);padding:4px;border-radius:8px;border:1px solid var(--border);}
+.tabs button{border:none;background:transparent;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--muted);font-weight:600;}
+.tabs button.active{background:var(--accent);color:#fff;}
+.btn{border:1px solid var(--border);background:var(--panel);color:var(--text);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;box-shadow:var(--shadow);}
+.btn:hover{border-color:var(--accent);}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn.primary:hover{background:var(--accent-hover);}
+.btn.small{padding:4px 10px;font-size:12px;}
+main{padding:24px;max-width:1400px;margin:0 auto;}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.config-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media (max-width:900px){.config-columns{grid-template-columns:1fr;}}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:var(--shadow);margin-bottom:20px;}
+.card h2{font-size:14px;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+td{padding:3px 6px;}
+input[type=text],input[type=number]{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:5px;background:var(--input-bg);color:var(--text);font-size:12px;}
+input[type=number]{text-align:right;}
+input[type=checkbox]{width:16px;height:16px;}
+.row-actions{text-align:center;}
+.icon-btn{border:none;background:transparent;color:var(--danger);cursor:pointer;font-size:15px;padding:2px 6px;}
+.options-row{display:flex;flex-wrap:wrap;gap:20px;align-items:end;margin-bottom:16px;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+.field input{width:110px;}
+.help{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;}
+.actions-bar{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0;}
+#results2d,#results1d{margin-top:20px;}
+.summary{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+.stat{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 16px;min-width:120px;box-shadow:var(--shadow);}
+.stat .v{font-size:20px;font-weight:700;}
+.stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+.warning{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:16px;}
+.sheet-card,.bin-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;box-shadow:var(--shadow);}
+.sheet-card h3,.bin-card h3{font-size:13px;margin:0 0 10px;color:var(--muted);}
+.sheet-svg-wrap{overflow:auto;}
+svg{display:block;}
+.part-rect{stroke:#00000055;stroke-width:1;}
+.part-label{font-size:11px;fill:#000;font-family:inherit;pointer-events:none;}
+.waste-rect{fill:repeating-linear-gradient(45deg,#ccc,#ccc 4px,#ddd 4px,#ddd 8px);}
+table.cutlist{margin-top:10px;font-size:12px;}
+table.cutlist th,table.cutlist td{border-bottom:1px solid var(--border);padding:6px 8px;}
+.file-input-hidden{display:none;}
+.layout-options{margin-bottom:16px;}
+.layout-options table{font-size:12px;}
+.layout-options th,.layout-options td{padding:6px 8px;border-bottom:1px solid var(--border);}
+.layout-options tr.opt-row{cursor:pointer;}
+.layout-options tr.opt-row:hover td{background:var(--bg);}
+.layout-options tr.opt-active td{background:var(--ok-bg);color:var(--ok-text);font-weight:600;}
+.layout-options .best-tag{background:var(--accent);color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;margin-left:6px;}
+.report-header{display:none;}
+.shopping-list table{font-size:12px;}
+.shopping-list th,.shopping-list td{padding:6px 8px;border-bottom:1px solid var(--border);}
+header .field{margin-right:4px;}
+header .field input{width:180px;}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+@media (max-width:640px){
+  header{padding:12px 14px;gap:10px;}
+  header h1{font-size:16px;flex-basis:100%;}
+  header .field{flex:1 1 auto;}
+  header .field input{width:100%;}
+  .tabs{flex:1 1 auto;}
+  .tabs button{flex:1 1 auto;padding:10px 8px;}
+  main{padding:12px;}
+  .card{padding:12px;}
+  .options-row{gap:12px;}
+  .field input{width:100%;}
+  .btn{padding:10px 14px;min-height:44px;}
+  .btn.small{padding:8px 12px;min-height:38px;}
+  input[type=text],input[type=number]{padding:9px 8px;font-size:14px;min-height:38px;}
+  input[type=checkbox]{width:20px;height:20px;}
+  .icon-btn{font-size:20px;padding:6px 10px;min-height:38px;min-width:38px;}
+  table{font-size:13px;}
+  th,td{padding:6px 5px;white-space:nowrap;}
+  .table-scroll table{min-width:520px;}
+  .table-scroll td input[type=text]{min-width:90px;}
+  .table-scroll td input[type=number]{min-width:64px;}
+  .stat{min-width:100px;padding:8px 12px;}
+  .summary{gap:10px;}
+}
+@media print{
+  header,.card,.actions-bar,.no-print,.layout-options{display:none !important;}
+  main{padding:0;}
+  .report-header{display:block;margin-bottom:16px;}
+  .report-header h1{font-size:20px;margin:0 0 4px;}
+  .report-header .meta{font-size:12px;color:#444;}
+  .sheet-card,.bin-card{break-inside:avoid;page-break-after:always;box-shadow:none;border:1px solid #000;}
+  .shopping-list{page-break-after:always;}
+  .sheet-svg-wrap svg{max-width:100%;height:auto;}
+  body{background:#fff;color:#000;}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>CutOptim Local<small>Offline cutting-layout optimizer — runs entirely in this browser, nothing leaves your PC</small></h1>
+  <div class="tabs">
+    <button data-tab="panel2d" class="active">2D Panels</button>
+    <button data-tab="panel1d">1D Linear</button>
+  </div>
+  <div class="field"><label>Project Name</label><input type="text" id="projectName" placeholder="Untitled Project"></div>
+  <button class="btn" id="btnSaveProject">Save Project</button>
+  <button class="btn" id="btnLoadProject">Load Project</button>
+  <input type="file" id="fileLoadProject" class="file-input-hidden" accept=".json,application/json,.csv,text/csv">
+</header>
+
+<main>
+  <!-- ===================== 2D PANELS ===================== -->
+  <section id="panel2d" class="tab-panel active">
+    <div class="config-columns">
+      <div class="card">
+        <h2>Stock Sheets <button class="btn small" id="addStock2d">+ Add</button></h2>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Label</th><th>Width</th><th>Height</th><th>Qty</th><th>Price/m²</th><th></th></tr></thead>
+          <tbody id="stockBody2d"></tbody>
+        </table></div>
+        <div class="help">Qty = 0 means unlimited stock of that size. Price = cost per square meter (assumes Width/Height are in millimeters) — leave 0 if you only care about waste, not cost.</div>
+      </div>
+      <div class="card">
+        <h2><span>Parts List</span><div style="display:flex;gap:6px;">
+          <button class="btn small" id="addPart2d">+ Add</button>
+          <button class="btn small" id="exportPartsCsv2d">Export CSV</button>
+          <button class="btn small" id="importPartsCsv2dBtn">Import CSV</button>
+          <input type="file" id="importPartsCsv2d" class="file-input-hidden" accept=".csv,text/csv">
+        </div></h2>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Label</th><th>Width</th><th>Height</th><th>Qty</th><th>Rotate</th><th>Grain lock</th><th></th></tr></thead>
+          <tbody id="partsBody2d"></tbody>
+        </table></div>
+        <div class="help">Grain lock prevents 90° rotation (grain must run along the height/length axis). CSV format: <code>Length,Width,Qty,Label</code> — Length maps to Height.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="options-row">
+        <div class="field"><label>Kerf (blade width)</label><input type="number" id="kerf2d" value="3" min="0" step="0.5"></div>
+        <div class="field"><label>Unit</label><input type="text" id="unit2d" value="mm"></div>
+        <div class="field"><label>Currency</label><input type="text" id="currency2d" value="€"></div>
+        <button class="btn primary" id="optimize2d">Optimize Layout</button>
+      </div>
+      <div class="help">Kerf is reserved after each part on the right/bottom edge as cutting-blade waste. Slightly conservative near sheet edges — this keeps the algorithm simple and safe.</div>
+    </div>
+
+    <div id="results2d"></div>
+  </section>
+
+  <!-- ===================== 1D LINEAR ===================== -->
+  <section id="panel1d" class="tab-panel">
+    <div class="config-columns">
+      <div class="card">
+        <h2>Stock Bars / Pipes <button class="btn small" id="addStock1d">+ Add</button></h2>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Label</th><th>Length</th><th>Qty</th><th>Price/m</th><th></th></tr></thead>
+          <tbody id="stockBody1d"></tbody>
+        </table></div>
+        <div class="help">Qty = 0 means unlimited stock of that length. Price = cost per linear meter (assumes Length is in millimeters) — leave 0 if you only care about waste, not cost.</div>
+      </div>
+      <div class="card">
+        <h2><span>Parts List</span><div style="display:flex;gap:6px;">
+          <button class="btn small" id="addPart1d">+ Add</button>
+          <button class="btn small" id="exportPartsCsv1d">Export CSV</button>
+          <button class="btn small" id="importPartsCsv1dBtn">Import CSV</button>
+          <input type="file" id="importPartsCsv1d" class="file-input-hidden" accept=".csv,text/csv">
+        </div></h2>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Label</th><th>Length</th><th>Qty</th><th></th></tr></thead>
+          <tbody id="partsBody1d"></tbody>
+        </table></div>
+        <div class="help">CSV format: <code>Length,Qty,Label</code></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="options-row">
+        <div class="field"><label>Kerf (blade width)</label><input type="number" id="kerf1d" value="3" min="0" step="0.5"></div>
+        <div class="field"><label>Unit</label><input type="text" id="unit1d" value="mm"></div>
+        <div class="field"><label>Currency</label><input type="text" id="currency1d" value="€"></div>
+        <button class="btn primary" id="optimize1d">Optimize Layout</button>
+      </div>
+    </div>
+
+    <div id="results1d"></div>
+  </section>
+</main>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------------- utilities ---------------- */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function colorForLabel(label){
+  let h = 0;
+  const s = String(label);
+  for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) >>> 0; }
+  const hue = h % 360;
+  return `hsl(${hue} 65% 78%)`;
+}
+function downloadBlob(filename, content, type){
+  const blob = new Blob([content], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function num(v, def){ const n = parseFloat(v); return isFinite(n) ? n : (def!==undefined?def:0); }
+function isNumericStr(s){ return s!==undefined && s!=="" && !isNaN(parseFloat(s)); }
+function csvParseRows(text){
+  return text.split(/\r?\n/).map(l=>l.split(",").map(c=>c.trim())).filter(r=> r.some(c=>c!==""));
+}
+function csvEscapeField(v){
+  const s = String(v);
+  return /[",\r\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+
+/* ---------------- tab switching ---------------- */
+document.querySelectorAll(".tabs button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+
+/* ---------------- row builders: 2D stock ---------------- */
+let rowId = 1;
+function addStockRow2d(data){
+  data = data || {};
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><input type="text" class="f-label" value="${escapeHtml(data.label||("Sheet "+(rowId++)))}"></td>
+    <td><input type="number" class="f-w" value="${data.w!=null?data.w:2440}" min="1"></td>
+    <td><input type="number" class="f-h" value="${data.h!=null?data.h:1220}" min="1"></td>
+    <td><input type="number" class="f-qty" value="${data.qty!=null?data.qty:0}" min="0"></td>
+    <td><input type="number" class="f-price" value="${data.price!=null?data.price:0}" min="0" step="0.01"></td>
+    <td class="row-actions"><button class="icon-btn" title="Remove">✕</button></td>`;
+  tr.querySelector(".icon-btn").addEventListener("click", ()=>tr.remove());
+  document.getElementById("stockBody2d").appendChild(tr);
+}
+function addPartRow2d(data){
+  data = data || {};
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><input type="text" class="f-label" value="${escapeHtml(data.label||("Part "+(rowId++)))}"></td>
+    <td><input type="number" class="f-w" value="${data.w!=null?data.w:600}" min="1"></td>
+    <td><input type="number" class="f-h" value="${data.h!=null?data.h:400}" min="1"></td>
+    <td><input type="number" class="f-qty" value="${data.qty!=null?data.qty:1}" min="1"></td>
+    <td style="text-align:center"><input type="checkbox" class="f-rotate" ${data.allowRotate!==false?"checked":""}></td>
+    <td style="text-align:center"><input type="checkbox" class="f-grain" ${data.grainLocked?"checked":""}></td>
+    <td class="row-actions"><button class="icon-btn" title="Remove">✕</button></td>`;
+  tr.querySelector(".icon-btn").addEventListener("click", ()=>tr.remove());
+  document.getElementById("partsBody2d").appendChild(tr);
+}
+function addStockRow1d(data){
+  data = data || {};
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><input type="text" class="f-label" value="${escapeHtml(data.label||("Bar "+(rowId++)))}"></td>
+    <td><input type="number" class="f-len" value="${data.len!=null?data.len:3000}" min="1"></td>
+    <td><input type="number" class="f-qty" value="${data.qty!=null?data.qty:0}" min="0"></td>
+    <td><input type="number" class="f-price" value="${data.price!=null?data.price:0}" min="0" step="0.01"></td>
+    <td class="row-actions"><button class="icon-btn" title="Remove">✕</button></td>`;
+  tr.querySelector(".icon-btn").addEventListener("click", ()=>tr.remove());
+  document.getElementById("stockBody1d").appendChild(tr);
+}
+function addPartRow1d(data){
+  data = data || {};
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><input type="text" class="f-label" value="${escapeHtml(data.label||("Cut "+(rowId++)))}"></td>
+    <td><input type="number" class="f-len" value="${data.len!=null?data.len:850}" min="1"></td>
+    <td><input type="number" class="f-qty" value="${data.qty!=null?data.qty:1}" min="1"></td>
+    <td class="row-actions"><button class="icon-btn" title="Remove">✕</button></td>`;
+  tr.querySelector(".icon-btn").addEventListener("click", ()=>tr.remove());
+  document.getElementById("partsBody1d").appendChild(tr);
+}
+
+document.getElementById("addStock2d").addEventListener("click", ()=>addStockRow2d());
+document.getElementById("addPart2d").addEventListener("click", ()=>addPartRow2d());
+document.getElementById("addStock1d").addEventListener("click", ()=>addStockRow1d());
+document.getElementById("addPart1d").addEventListener("click", ()=>addPartRow1d());
+
+/* ---------------- readers ---------------- */
+function readStocks2d(){
+  return [...document.querySelectorAll("#stockBody2d tr")].map(tr=>({
+    label: tr.querySelector(".f-label").value.trim() || "Sheet",
+    w: num(tr.querySelector(".f-w").value), h: num(tr.querySelector(".f-h").value),
+    qty: num(tr.querySelector(".f-qty").value), price: num(tr.querySelector(".f-price").value, 0)
+  })).filter(s=>s.w>0 && s.h>0);
+}
+function readParts2d(){
+  return [...document.querySelectorAll("#partsBody2d tr")].map(tr=>({
+    label: tr.querySelector(".f-label").value.trim() || "Part",
+    w: num(tr.querySelector(".f-w").value), h: num(tr.querySelector(".f-h").value),
+    qty: Math.max(1, num(tr.querySelector(".f-qty").value,1)),
+    allowRotate: tr.querySelector(".f-rotate").checked,
+    grainLocked: tr.querySelector(".f-grain").checked
+  })).filter(p=>p.w>0 && p.h>0);
+}
+function readStocks1d(){
+  return [...document.querySelectorAll("#stockBody1d tr")].map(tr=>({
+    label: tr.querySelector(".f-label").value.trim() || "Bar",
+    len: num(tr.querySelector(".f-len").value), qty: num(tr.querySelector(".f-qty").value),
+    price: num(tr.querySelector(".f-price").value, 0)
+  })).filter(s=>s.len>0);
+}
+function readParts1d(){
+  return [...document.querySelectorAll("#partsBody1d tr")].map(tr=>({
+    label: tr.querySelector(".f-label").value.trim() || "Cut",
+    len: num(tr.querySelector(".f-len").value), qty: Math.max(1, num(tr.querySelector(".f-qty").value,1))
+  })).filter(p=>p.len>0);
+}
+
+/* ---------------- 2D guillotine packing ---------------- */
+const SORT_KEYS_2D = [
+  {name:"Largest area first", cmp:(a,b)=> (b.w*b.h) - (a.w*a.h)},
+  {name:"Longest side first", cmp:(a,b)=> Math.max(b.w,b.h) - Math.max(a.w,a.h)},
+  {name:"Tallest first", cmp:(a,b)=> b.h - a.h},
+  {name:"Widest first", cmp:(a,b)=> b.w - a.w}
+];
+const SPLIT_PREFS_2D = ["shorter-leftover","longer-leftover"];
+
+function packGuillotine2D(stocks, parts, kerf, opts){
+  opts = opts || {};
+  const sortCmp = opts.sortCmp || SORT_KEYS_2D[0].cmp;
+  const splitPref = opts.splitPref || SPLIT_PREFS_2D[0];
+  const preferStockIdx = opts.preferStockIdx!=null ? opts.preferStockIdx : null;
+  const costMode = !!opts.costMode;
+
+  const units = [];
+  parts.forEach((p,pi)=>{
+    for(let i=0;i<p.qty;i++) units.push({label:p.label, w:p.w, h:p.h, allowRotate: p.allowRotate && !p.grainLocked, grainLocked:p.grainLocked, key:pi+"-"+i});
+  });
+  units.sort(sortCmp);
+
+  const stockRemaining = stocks.map((s,idx)=>({...s, idx, remaining: s.qty>0? s.qty : Infinity}));
+  const sheets = [];
+  const unplaced = [];
+
+  function bestFitInSheet(sheet, unit){
+    let best = null;
+    sheet.freeRects.forEach((rect, idx)=>{
+      const orientations = [{w:unit.w,h:unit.h,rot:false}];
+      if(unit.allowRotate) orientations.push({w:unit.h,h:unit.w,rot:true});
+      orientations.forEach(o=>{
+        if(rect.w >= o.w && rect.h >= o.h){
+          const leftover = rect.w*rect.h - o.w*o.h;
+          if(!best || leftover < best.leftover){
+            best = {rectIdx: idx, rect, w:o.w, h:o.h, rot:o.rot, leftover};
+          }
+        }
+      });
+    });
+    return best;
+  }
+
+  function placeInSheet(sheet, unit, best){
+    const rect = best.rect;
+    const effW = best.w + kerf, effH = best.h + kerf;
+    const dw = Math.max(0, rect.w - effW), dh = Math.max(0, rect.h - effH);
+    sheet.placements.push({label:unit.label, x:rect.x, y:rect.y, w:best.w, h:best.h, rotated:best.rot});
+    sheet.freeRects.splice(best.rectIdx,1);
+    const preferWide = splitPref==="shorter-leftover" ? (dw > dh) : (dw <= dh);
+    if(preferWide){
+      if(dw>0) sheet.freeRects.push({x:rect.x+effW, y:rect.y, w:dw, h:rect.h});
+      if(dh>0) sheet.freeRects.push({x:rect.x, y:rect.y+effH, w:effW, h:dh});
+    } else {
+      if(dh>0) sheet.freeRects.push({x:rect.x, y:rect.y+effH, w:rect.w, h:dh});
+      if(dw>0) sheet.freeRects.push({x:rect.x+effW, y:rect.y, w:dw, h:effH});
+    }
+  }
+
+  function sheetCost(stock){
+    return (stock.price||0) * (stock.w*stock.h/1e6);
+  }
+
+  function trialUtilization(stock, sampleUnits){
+    const trial = {w:stock.w, h:stock.h, freeRects:[{x:0,y:0,w:stock.w,h:stock.h}], placements:[]};
+    let usedArea = 0;
+    for(const u of sampleUnits){
+      const best = bestFitInSheet(trial, u);
+      if(best){ usedArea += best.w*best.h; placeInSheet(trial, u, best); }
+    }
+    if(costMode){
+      const cost = sheetCost(stock);
+      return cost>0 ? (usedArea/cost) : usedArea*1e9;
+    }
+    return usedArea / (stock.w*stock.h);
+  }
+
+  function openNewSheet(unit, remainingUnits){
+    const candidates = stockRemaining.filter(s=> s.remaining>0 && (
+      (s.w>=unit.w && s.h>=unit.h) || (unit.allowRotate && s.w>=unit.h && s.h>=unit.w)
+    ));
+    if(candidates.length===0) return null;
+    let chosen = null;
+    if(preferStockIdx!=null) chosen = candidates.find(c=> c.idx===preferStockIdx) || null;
+    if(!chosen){
+      chosen = candidates[0];
+      if(candidates.length>1){
+        const sample = remainingUnits.length>150 ? remainingUnits.slice(0,150) : remainingUnits;
+        let bestScore = -1;
+        candidates.forEach(cand=>{
+          const score = trialUtilization(cand, sample);
+          if(score > bestScore){ bestScore = score; chosen = cand; }
+        });
+      }
+    }
+    chosen.remaining = chosen.remaining===Infinity? Infinity : chosen.remaining-1;
+    const sheet = {stockLabel:chosen.label, w:chosen.w, h:chosen.h, priceRate:chosen.price||0, cost:sheetCost(chosen), freeRects:[{x:0,y:0,w:chosen.w,h:chosen.h}], placements:[]};
+    sheets.push(sheet);
+    return sheet;
+  }
+
+  for(let i=0;i<units.length;i++){
+    const unit = units[i];
+    let placed = false;
+    for(const sheet of sheets){
+      const best = bestFitInSheet(sheet, unit);
+      if(best){ placeInSheet(sheet, unit, best); placed = true; break; }
+    }
+    if(!placed){
+      const sheet = openNewSheet(unit, units.slice(i));
+      if(sheet){
+        const best = bestFitInSheet(sheet, unit);
+        if(best){ placeInSheet(sheet, unit, best); placed = true; }
+      }
+    }
+    if(!placed) unplaced.push(unit);
+  }
+
+  return {sheets, unplaced};
+}
+
+function stats2D(result){
+  let stockArea = 0, usedArea = 0, totalCost = 0;
+  result.sheets.forEach(s=>{ stockArea += s.w*s.h; totalCost += s.cost||0; s.placements.forEach(p=> usedArea += p.w*p.h); });
+  const wastePct = stockArea>0 ? (100 - (usedArea/stockArea*100)) : 0;
+  return {sheets: result.sheets.length, unplaced: result.unplaced.length, wastePct, totalCost};
+}
+
+function runStrategies2D(stocks, parts, kerf){
+  const hasCost = stocks.some(s=> s.price>0);
+  const candidates = [];
+  SORT_KEYS_2D.forEach(sk=>{
+    SPLIT_PREFS_2D.forEach(sp=>{
+      const result = packGuillotine2D(stocks, parts, kerf, {sortCmp: sk.cmp, splitPref: sp});
+      candidates.push({
+        name: sk.name + " (" + (sp==="shorter-leftover"?"Split A":"Split B") + ")",
+        result, stats: stats2D(result)
+      });
+    });
+  });
+  if(hasCost){
+    const result = packGuillotine2D(stocks, parts, kerf, {sortCmp: SORT_KEYS_2D[0].cmp, splitPref: SPLIT_PREFS_2D[0], costMode:true});
+    candidates.push({name:"Lowest cost (auto mix)", result, stats: stats2D(result)});
+  }
+  if(stocks.length>1){
+    stocks.forEach((s,idx)=>{
+      const result = packGuillotine2D(stocks, parts, kerf, {sortCmp: SORT_KEYS_2D[0].cmp, splitPref: SPLIT_PREFS_2D[0], preferStockIdx: idx});
+      candidates.push({
+        name: "Prefer stock: " + s.label,
+        result, stats: stats2D(result)
+      });
+    });
+  }
+  candidates.sort((a,b)=> (a.stats.unplaced - b.stats.unplaced)
+    || (hasCost ? (a.stats.totalCost - b.stats.totalCost) : 0)
+    || (a.stats.wastePct - b.stats.wastePct)
+    || (a.stats.sheets - b.stats.sheets));
+  return candidates;
+}
+
+/* ---------------- 1D packing ---------------- */
+const SORT_KEYS_1D = [
+  {name:"Longest first", cmp:(a,b)=> b.len - a.len},
+  {name:"Shortest first", cmp:(a,b)=> a.len - b.len}
+];
+const FIT_MODES_1D = ["first-fit","best-fit"];
+
+function pack1D(stocks, parts, kerf, opts){
+  opts = opts || {};
+  const sortCmp = opts.sortCmp || SORT_KEYS_1D[0].cmp;
+  const fitMode = opts.fitMode || FIT_MODES_1D[0];
+  const preferStockIdx = opts.preferStockIdx!=null ? opts.preferStockIdx : null;
+  const costMode = !!opts.costMode;
+
+  const units = [];
+  parts.forEach((p,pi)=>{
+    for(let i=0;i<p.qty;i++) units.push({label:p.label, len:p.len, key:pi+"-"+i});
+  });
+  units.sort(sortCmp);
+
+  const stockRemaining = stocks.map((s,idx)=>({...s, idx, remaining: s.qty>0? s.qty : Infinity}));
+  const bins = [];
+  const unplaced = [];
+
+  function fits(bin, unit){
+    const needed = unit.len + (bin.placements.length>0 ? kerf : 0);
+    return bin.remaining >= needed ? needed : -1;
+  }
+  function place(bin, unit, needed){
+    const pos = bin.len - bin.remaining + (bin.placements.length>0? kerf:0);
+    bin.placements.push({label:unit.label, pos, len:unit.len});
+    bin.remaining -= needed;
+  }
+  function binCost(stock){
+    return (stock.price||0) * (stock.len/1000);
+  }
+
+  function trialUtilization(stock, sampleUnits){
+    let remaining = stock.len, usedLen = 0, count = 0;
+    for(const u of sampleUnits){
+      const needed = u.len + (count>0 ? kerf : 0);
+      if(remaining >= needed){ remaining -= needed; usedLen += u.len; count++; }
+    }
+    if(costMode){
+      const cost = binCost(stock);
+      return cost>0 ? (usedLen/cost) : usedLen*1e9;
+    }
+    return usedLen / stock.len;
+  }
+
+  function openNewBin(unit, remainingUnits){
+    const candidates = stockRemaining.filter(s=>s.remaining>0 && s.len>=unit.len);
+    if(candidates.length===0) return null;
+    let chosen = null;
+    if(preferStockIdx!=null) chosen = candidates.find(c=> c.idx===preferStockIdx) || null;
+    if(!chosen){
+      chosen = candidates[0];
+      if(candidates.length>1){
+        const sample = remainingUnits.length>150 ? remainingUnits.slice(0,150) : remainingUnits;
+        let bestScore = -1;
+        candidates.forEach(cand=>{
+          const score = trialUtilization(cand, sample);
+          if(score > bestScore){ bestScore = score; chosen = cand; }
+        });
+      }
+    }
+    chosen.remaining = chosen.remaining===Infinity? Infinity : chosen.remaining-1;
+    const bin = {stockLabel:chosen.label, len:chosen.len, priceRate:chosen.price||0, cost:binCost(chosen), remaining:chosen.len, placements:[]};
+    bins.push(bin);
+    return bin;
+  }
+
+  for(let i=0;i<units.length;i++){
+    const unit = units[i];
+    let placed = false;
+    if(fitMode==="best-fit"){
+      let best = null;
+      bins.forEach(bin=>{
+        const needed = fits(bin, unit);
+        if(needed>=0 && (!best || (bin.remaining-needed) < (best.bin.remaining-best.needed))){
+          best = {bin, needed};
+        }
+      });
+      if(best){ place(best.bin, unit, best.needed); placed = true; }
+    } else {
+      for(const bin of bins){
+        const needed = fits(bin, unit);
+        if(needed>=0){ place(bin, unit, needed); placed = true; break; }
+      }
+    }
+    if(!placed){
+      const bin = openNewBin(unit, units.slice(i));
+      if(bin){
+        const needed = fits(bin, unit);
+        if(needed>=0){ place(bin, unit, needed); placed = true; }
+      }
+    }
+    if(!placed) unplaced.push(unit);
+  }
+
+  return {bins, unplaced};
+}
+
+function stats1D(result){
+  let totalLen = 0, usedLen = 0, totalCost = 0;
+  result.bins.forEach(b=>{ totalLen += b.len; totalCost += b.cost||0; b.placements.forEach(p=> usedLen += p.len); });
+  const wastePct = totalLen>0 ? (100 - (usedLen/totalLen*100)) : 0;
+  return {bars: result.bins.length, unplaced: result.unplaced.length, wastePct, totalCost};
+}
+
+function runStrategies1D(stocks, parts, kerf){
+  const hasCost = stocks.some(s=> s.price>0);
+  const candidates = [];
+  SORT_KEYS_1D.forEach(sk=>{
+    FIT_MODES_1D.forEach(fm=>{
+      const result = pack1D(stocks, parts, kerf, {sortCmp: sk.cmp, fitMode: fm});
+      candidates.push({
+        name: sk.name + " (" + (fm==="first-fit"?"First fit":"Best fit") + ")",
+        result, stats: stats1D(result)
+      });
+    });
+  });
+  if(hasCost){
+    const result = pack1D(stocks, parts, kerf, {sortCmp: SORT_KEYS_1D[0].cmp, fitMode: FIT_MODES_1D[0], costMode:true});
+    candidates.push({name:"Lowest cost (auto mix)", result, stats: stats1D(result)});
+  }
+  if(stocks.length>1){
+    stocks.forEach((s,idx)=>{
+      const result = pack1D(stocks, parts, kerf, {sortCmp: SORT_KEYS_1D[0].cmp, fitMode: FIT_MODES_1D[0], preferStockIdx: idx});
+      candidates.push({
+        name: "Prefer stock: " + s.label,
+        result, stats: stats1D(result)
+      });
+    });
+  }
+  candidates.sort((a,b)=> (a.stats.unplaced - b.stats.unplaced)
+    || (hasCost ? (a.stats.totalCost - b.stats.totalCost) : 0)
+    || (a.stats.wastePct - b.stats.wastePct)
+    || (a.stats.bars - b.stats.bars));
+  return candidates;
+}
+
+/* ---------------- rendering: 2D ---------------- */
+let strategies2d = [], activeIdx2d = 0, ctx2d = {unit:"mm", kerf:0, currency:"$", hasCost:false};
+
+function renderLayoutOptionsHtml(candidates, activeIdx, sortLabel, hasCost, currency){
+  let html = `<div class="layout-options no-print"><h3 style="font-size:13px;margin:0 0 8px;">Layout Options — click a row to switch</h3>
+    <div class="table-scroll"><table><thead><tr><th>Strategy</th><th>${sortLabel}</th><th>Waste</th>${hasCost?`<th>Cost</th>`:""}<th>Unplaced</th></tr></thead><tbody>`;
+  candidates.forEach((c, i)=>{
+    const metric = c.stats.sheets!==undefined ? c.stats.sheets : c.stats.bars;
+    html += `<tr class="opt-row${i===activeIdx?" opt-active":""}" data-idx="${i}">
+      <td>${escapeHtml(c.name)}${i===0?'<span class="best-tag">BEST</span>':""}</td>
+      <td>${metric}</td>
+      <td>${c.stats.wastePct.toFixed(1)}%</td>
+      ${hasCost?`<td>${currency}${c.stats.totalCost.toFixed(2)}</td>`:""}
+      <td>${c.stats.unplaced}</td>
+    </tr>`;
+  });
+  html += `</tbody></table></div></div>`;
+  return html;
+}
+
+function reportHeaderHtml(title, kerf, unit, hasCost, currency, totalCost){
+  const name = document.getElementById("projectName").value.trim() || "Untitled Project";
+  const now = new Date();
+  return `<div class="report-header">
+    <h1>${escapeHtml(name)} — ${title}</h1>
+    <div class="meta">Generated ${now.toLocaleDateString()} ${now.toLocaleTimeString()} · Kerf ${kerf} ${unit} · Unit: ${unit}${hasCost?` · Total Cost: ${currency}${totalCost.toFixed(2)}`:""}</div>
+  </div>`;
+}
+
+function renderResults2d(idx){
+  activeIdx2d = idx;
+  const {result, stats} = strategies2d[idx];
+  const unit = ctx2d.unit;
+  const {hasCost, currency} = ctx2d;
+  const container = document.getElementById("results2d");
+  const {sheets, unplaced} = result;
+  let totalStockArea = 0, totalUsedArea = 0, totalCost = 0;
+  sheets.forEach(s=>{
+    totalStockArea += s.w*s.h;
+    totalCost += s.cost||0;
+    s.placements.forEach(p=> totalUsedArea += p.w*p.h);
+  });
+  const wastePct = totalStockArea>0 ? (100 - (totalUsedArea/totalStockArea*100)) : 0;
+
+  let html = reportHeaderHtml("2D Cutting Plan", ctx2d.kerf, unit, hasCost, currency, totalCost);
+
+  html += renderLayoutOptionsHtml(strategies2d, idx, "Sheets", hasCost, currency);
+
+  html += `<div class="summary">
+    <div class="stat"><div class="v">${sheets.length}</div><div class="l">Sheets used</div></div>
+    <div class="stat"><div class="v">${wastePct.toFixed(1)}%</div><div class="l">Waste</div></div>
+    <div class="stat"><div class="v">${sheets.reduce((n,s)=>n+s.placements.length,0)}</div><div class="l">Parts placed</div></div>
+    ${hasCost?`<div class="stat"><div class="v">${currency}${totalCost.toFixed(2)}</div><div class="l">Total Cost</div></div>`:""}
+  </div>`;
+
+  if(unplaced.length>0){
+    html += `<div class="warning">${unplaced.length} part(s) could not be placed on any available stock sheet (too large or insufficient quantity): ${unplaced.map(u=>escapeHtml(u.label)).join(", ")}</div>`;
+  }
+
+  html += `<div class="actions-bar no-print">
+    <button class="btn" id="exportSvg2d">Export SVG</button>
+    <button class="btn" id="printResults2d">Print / Save as PDF</button>
+  </div>`;
+
+  const stockCounts = {};
+  sheets.forEach(s=>{
+    const key = s.stockLabel+"|"+s.w+"x"+s.h;
+    if(!stockCounts[key]) stockCounts[key] = {label:s.stockLabel, w:s.w, h:s.h, count:0, rate:s.priceRate||0, costEach:s.cost||0};
+    stockCounts[key].count++;
+  });
+  html += `<div class="shopping-list"><h3 style="font-size:13px;">Stock Required</h3><div class="table-scroll"><table><thead><tr><th>Stock</th><th>Size</th><th>Quantity</th>${hasCost?`<th>Price/m²</th><th>Cost Each</th><th>Line Cost</th>`:""}</tr></thead><tbody>`;
+  Object.values(stockCounts).forEach(sc=>{
+    html += `<tr><td>${escapeHtml(sc.label)}</td><td>${sc.w}×${sc.h} ${unit}</td><td>${sc.count}</td>${hasCost?`<td>${currency}${sc.rate.toFixed(2)}</td><td>${currency}${sc.costEach.toFixed(2)}</td><td>${currency}${(sc.costEach*sc.count).toFixed(2)}</td>`:""}</tr>`;
+  });
+  if(hasCost){
+    html += `<tr style="font-weight:700;"><td colspan="5" style="text-align:right;">Grand Total</td><td>${currency}${totalCost.toFixed(2)}</td></tr>`;
+  }
+  html += `</tbody></table></div></div>`;
+
+  const maxW = 560, maxH = 700;
+  sheets.forEach((sheet, si)=>{
+    const scale = Math.min(maxW/sheet.w, maxH/sheet.h, 1);
+    const pxW = sheet.w*scale, pxH = sheet.h*scale;
+    let svg = `<svg class="sheet-svg" width="${pxW}" height="${pxH}" viewBox="0 0 ${sheet.w} ${sheet.h}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="${sheet.w}" height="${sheet.h}" fill="none" stroke="currentColor" stroke-width="${2/scale}"/>`;
+    sheet.placements.forEach(p=>{
+      svg += `<rect class="part-rect" x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" fill="${colorForLabel(p.label)}"/>
+        <text class="part-label" x="${p.x + p.w/2}" y="${p.y + p.h/2}" text-anchor="middle" dominant-baseline="middle" font-size="${Math.min(p.w,p.h)/6}">${escapeHtml(p.label)} (${p.w}×${p.h}${p.rotated?" ↻":""})</text>`;
+    });
+    svg += `</svg>`;
+    html += `<div class="sheet-card">
+      <h3>Sheet ${si+1} — ${escapeHtml(sheet.stockLabel)} (${sheet.w}×${sheet.h} ${unit}) — ${sheet.placements.length} parts</h3>
+      <div class="sheet-svg-wrap">${svg}</div>
+    </div>`;
+  });
+
+  html += `<div class="table-scroll"><table class="cutlist"><thead><tr><th>Sheet</th><th>Stock</th><th>Part</th><th>Width</th><th>Height</th><th>X</th><th>Y</th><th>Rotated</th></tr></thead><tbody>`;
+  sheets.forEach((sheet, si)=>{
+    sheet.placements.forEach(p=>{
+      html += `<tr><td>${si+1}</td><td>${escapeHtml(sheet.stockLabel)}</td><td>${escapeHtml(p.label)}</td><td>${p.w}</td><td>${p.h}</td><td>${p.x}</td><td>${p.y}</td><td>${p.rotated?"Yes":"No"}</td></tr>`;
+    });
+  });
+  html += `</tbody></table></div>`;
+
+  container.innerHTML = html;
+  document.getElementById("exportSvg2d").addEventListener("click", ()=>exportAllSvg(".sheet-svg", "cutoptim-2d-layout.svg"));
+  document.getElementById("printResults2d").addEventListener("click", ()=>window.print());
+  container.querySelectorAll(".layout-options .opt-row").forEach(row=>{
+    row.addEventListener("click", ()=> renderResults2d(parseInt(row.dataset.idx,10)));
+  });
+}
+
+/* ---------------- rendering: 1D ---------------- */
+let strategies1d = [], activeIdx1d = 0, ctx1d = {unit:"mm", kerf:0, currency:"$", hasCost:false};
+
+function renderResults1d(idx){
+  activeIdx1d = idx;
+  const {result} = strategies1d[idx];
+  const unit = ctx1d.unit;
+  const {hasCost, currency} = ctx1d;
+  const container = document.getElementById("results1d");
+  const {bins, unplaced} = result;
+  let totalLen = 0, usedLen = 0, totalCost = 0;
+  bins.forEach(b=>{ totalLen += b.len; totalCost += b.cost||0; b.placements.forEach(p=> usedLen += p.len); });
+  const wastePct = totalLen>0 ? (100 - (usedLen/totalLen*100)) : 0;
+
+  let html = reportHeaderHtml("1D Cutting Plan", ctx1d.kerf, unit, hasCost, currency, totalCost);
+
+  html += renderLayoutOptionsHtml(strategies1d, idx, "Bars", hasCost, currency);
+
+  html += `<div class="summary">
+    <div class="stat"><div class="v">${bins.length}</div><div class="l">Bars used</div></div>
+    <div class="stat"><div class="v">${wastePct.toFixed(1)}%</div><div class="l">Waste</div></div>
+    <div class="stat"><div class="v">${bins.reduce((n,b)=>n+b.placements.length,0)}</div><div class="l">Cuts placed</div></div>
+    ${hasCost?`<div class="stat"><div class="v">${currency}${totalCost.toFixed(2)}</div><div class="l">Total Cost</div></div>`:""}
+  </div>`;
+
+  if(unplaced.length>0){
+    html += `<div class="warning">${unplaced.length} cut(s) could not be placed on any available stock (too long or insufficient quantity): ${unplaced.map(u=>escapeHtml(u.label)).join(", ")}</div>`;
+  }
+
+  html += `<div class="actions-bar no-print">
+    <button class="btn" id="exportSvg1d">Export SVG</button>
+    <button class="btn" id="printResults1d">Print / Save as PDF</button>
+  </div>`;
+
+  const stockCounts = {};
+  bins.forEach(b=>{
+    const key = b.stockLabel+"|"+b.len;
+    if(!stockCounts[key]) stockCounts[key] = {label:b.stockLabel, len:b.len, count:0, rate:b.priceRate||0, costEach:b.cost||0};
+    stockCounts[key].count++;
+  });
+  html += `<div class="shopping-list"><h3 style="font-size:13px;">Stock Required</h3><div class="table-scroll"><table><thead><tr><th>Stock</th><th>Length</th><th>Quantity</th>${hasCost?`<th>Price/m</th><th>Cost Each</th><th>Line Cost</th>`:""}</tr></thead><tbody>`;
+  Object.values(stockCounts).forEach(sc=>{
+    html += `<tr><td>${escapeHtml(sc.label)}</td><td>${sc.len} ${unit}</td><td>${sc.count}</td>${hasCost?`<td>${currency}${sc.rate.toFixed(2)}</td><td>${currency}${sc.costEach.toFixed(2)}</td><td>${currency}${(sc.costEach*sc.count).toFixed(2)}</td>`:""}</tr>`;
+  });
+  if(hasCost){
+    html += `<tr style="font-weight:700;"><td colspan="5" style="text-align:right;">Grand Total</td><td>${currency}${totalCost.toFixed(2)}</td></tr>`;
+  }
+  html += `</tbody></table></div></div>`;
+
+  const maxW = 760;
+  bins.forEach((bin, bi)=>{
+    const scale = maxW/bin.len;
+    const pxW = bin.len*scale, pxH = 50;
+    let svg = `<svg class="sheet-svg" width="${pxW}" height="${pxH}" viewBox="0 0 ${bin.len} ${pxH/scale}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="${bin.len}" height="${pxH/scale}" fill="none" stroke="currentColor" stroke-width="${2/scale}"/>`;
+    bin.placements.forEach(p=>{
+      svg += `<rect class="part-rect" x="${p.pos}" y="0" width="${p.len}" height="${pxH/scale}" fill="${colorForLabel(p.label)}"/>
+        <text class="part-label" x="${p.pos + p.len/2}" y="${(pxH/scale)/2}" text-anchor="middle" dominant-baseline="middle" font-size="${(pxH/scale)/3.5}">${escapeHtml(p.label)} (${p.len})</text>`;
+    });
+    svg += `</svg>`;
+    html += `<div class="bin-card">
+      <h3>Bar ${bi+1} — ${escapeHtml(bin.stockLabel)} (${bin.len} ${unit}) — ${bin.placements.length} cuts, ${bin.remaining.toFixed(1)} ${unit} offcut</h3>
+      <div class="sheet-svg-wrap">${svg}</div>
+    </div>`;
+  });
+
+  html += `<div class="table-scroll"><table class="cutlist"><thead><tr><th>Bar</th><th>Stock</th><th>Cut</th><th>Length</th><th>Position</th></tr></thead><tbody>`;
+  bins.forEach((bin, bi)=>{
+    bin.placements.forEach(p=>{
+      html += `<tr><td>${bi+1}</td><td>${escapeHtml(bin.stockLabel)}</td><td>${escapeHtml(p.label)}</td><td>${p.len}</td><td>${p.pos.toFixed(1)}</td></tr>`;
+    });
+  });
+  html += `</tbody></table></div>`;
+
+  container.innerHTML = html;
+  document.getElementById("exportSvg1d").addEventListener("click", ()=>exportAllSvg(".sheet-svg", "cutoptim-1d-layout.svg"));
+  document.getElementById("printResults1d").addEventListener("click", ()=>window.print());
+  container.querySelectorAll(".layout-options .opt-row").forEach(row=>{
+    row.addEventListener("click", ()=> renderResults1d(parseInt(row.dataset.idx,10)));
+  });
+}
+
+function exportAllSvg(selector, filename){
+  const svgs = [...document.querySelectorAll(selector)];
+  if(svgs.length===0) return;
+  let y = 0;
+  const totalW = Math.max(...svgs.map(s=>parseFloat(s.getAttribute("width"))));
+  let inner = "";
+  svgs.forEach(s=>{
+    const w = parseFloat(s.getAttribute("width")), h = parseFloat(s.getAttribute("height"));
+    inner += `<g transform="translate(0,${y})">${s.innerHTML}</g>`;
+    y += h + 20;
+  });
+  const combined = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${y}" style="background:#fff">${inner}</svg>`;
+  downloadBlob(filename, combined, "image/svg+xml");
+}
+
+/* ---------------- optimize buttons ---------------- */
+document.getElementById("optimize2d").addEventListener("click", ()=>{
+  const stocks = readStocks2d(), parts = readParts2d();
+  const kerf = num(document.getElementById("kerf2d").value, 0);
+  const unit = document.getElementById("unit2d").value || "mm";
+  if(stocks.length===0 || parts.length===0){
+    document.getElementById("results2d").innerHTML = `<div class="warning">Add at least one stock sheet and one part before optimizing.</div>`;
+    return;
+  }
+  const currency = document.getElementById("currency2d").value || "€";
+  ctx2d = {unit, kerf, currency, hasCost: stocks.some(s=>s.price>0)};
+  strategies2d = runStrategies2D(stocks, parts, kerf);
+  renderResults2d(0);
+});
+document.getElementById("optimize1d").addEventListener("click", ()=>{
+  const stocks = readStocks1d(), parts = readParts1d();
+  const kerf = num(document.getElementById("kerf1d").value, 0);
+  const unit = document.getElementById("unit1d").value || "mm";
+  if(stocks.length===0 || parts.length===0){
+    document.getElementById("results1d").innerHTML = `<div class="warning">Add at least one stock bar and one cut length before optimizing.</div>`;
+    return;
+  }
+  const currency = document.getElementById("currency1d").value || "€";
+  ctx1d = {unit, kerf, currency, hasCost: stocks.some(s=>s.price>0)};
+  strategies1d = runStrategies1D(stocks, parts, kerf);
+  renderResults1d(0);
+});
+
+/* ---------------- save / load project ---------------- */
+document.getElementById("btnSaveProject").addEventListener("click", ()=>{
+  const project = {
+    stocks2d: readStocks2d(), parts2d: [...document.querySelectorAll("#partsBody2d tr")].map(tr=>({
+      label: tr.querySelector(".f-label").value, w: num(tr.querySelector(".f-w").value), h: num(tr.querySelector(".f-h").value),
+      qty: num(tr.querySelector(".f-qty").value), allowRotate: tr.querySelector(".f-rotate").checked, grainLocked: tr.querySelector(".f-grain").checked
+    })),
+    stocks1d: readStocks1d(), parts1d: readParts1d(),
+    kerf2d: document.getElementById("kerf2d").value, unit2d: document.getElementById("unit2d").value,
+    kerf1d: document.getElementById("kerf1d").value, unit1d: document.getElementById("unit1d").value,
+    currency2d: document.getElementById("currency2d").value, currency1d: document.getElementById("currency1d").value,
+    projectName: document.getElementById("projectName").value
+  };
+  downloadBlob("cutoptim-project.json", JSON.stringify(project, null, 2), "application/json");
+});
+document.getElementById("btnLoadProject").addEventListener("click", ()=> document.getElementById("fileLoadProject").click());
+document.getElementById("fileLoadProject").addEventListener("change", (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const isCsv = /\.csv$/i.test(file.name);
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      if(isCsv){
+        importPartsCsv2d(reader.result);
+        document.querySelector('.tabs button[data-tab="panel2d"]').click();
+        return;
+      }
+      const p = JSON.parse(reader.result);
+      document.getElementById("stockBody2d").innerHTML = "";
+      document.getElementById("partsBody2d").innerHTML = "";
+      document.getElementById("stockBody1d").innerHTML = "";
+      document.getElementById("partsBody1d").innerHTML = "";
+      (p.stocks2d||[]).forEach(addStockRow2d);
+      (p.parts2d||[]).forEach(addPartRow2d);
+      (p.stocks1d||[]).forEach(s=>addStockRow1d({label:s.label, len:s.len, qty:s.qty, price:s.price}));
+      (p.parts1d||[]).forEach(pt=>addPartRow1d({label:pt.label, len:pt.len, qty:pt.qty}));
+      if(p.kerf2d!=null) document.getElementById("kerf2d").value = p.kerf2d;
+      if(p.unit2d!=null) document.getElementById("unit2d").value = p.unit2d;
+      if(p.kerf1d!=null) document.getElementById("kerf1d").value = p.kerf1d;
+      if(p.unit1d!=null) document.getElementById("unit1d").value = p.unit1d;
+      if(p.currency2d!=null) document.getElementById("currency2d").value = p.currency2d;
+      if(p.currency1d!=null) document.getElementById("currency1d").value = p.currency1d;
+      if(p.projectName!=null) document.getElementById("projectName").value = p.projectName;
+    }catch(err){
+      alert("Could not load project file: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+/* ---------------- parts CSV import / export ---------------- */
+function exportPartsCsv2d(){
+  const parts = readParts2d();
+  let csv = "Length,Width,Qty,Label\r\n";
+  parts.forEach(p=> csv += [p.h, p.w, p.qty, csvEscapeField(p.label)].join(",") + "\r\n");
+  downloadBlob("parts-2d.csv", csv, "text/csv");
+}
+function importPartsCsv2d(text){
+  const rows = csvParseRows(text);
+  if(rows.length===0) return;
+  const start = isNumericStr(rows[0][0]) ? 0 : 1;
+  document.getElementById("partsBody2d").innerHTML = "";
+  for(let i=start;i<rows.length;i++){
+    const r = rows[i];
+    if(r.length<3) continue;
+    const h = parseFloat(r[0]), w = parseFloat(r[1]), qty = parseFloat(r[2]);
+    if(!isFinite(h) || !isFinite(w) || h<=0 || w<=0) continue;
+    addPartRow2d({label: r[3] || "Part", w, h, qty: isFinite(qty)&&qty>0?qty:1});
+  }
+}
+function exportPartsCsv1d(){
+  const parts = readParts1d();
+  let csv = "Length,Qty,Label\r\n";
+  parts.forEach(p=> csv += [p.len, p.qty, csvEscapeField(p.label)].join(",") + "\r\n");
+  downloadBlob("parts-1d.csv", csv, "text/csv");
+}
+function importPartsCsv1d(text){
+  const rows = csvParseRows(text);
+  if(rows.length===0) return;
+  const start = isNumericStr(rows[0][0]) ? 0 : 1;
+  document.getElementById("partsBody1d").innerHTML = "";
+  for(let i=start;i<rows.length;i++){
+    const r = rows[i];
+    if(r.length<2) continue;
+    const len = parseFloat(r[0]), qty = parseFloat(r[1]);
+    if(!isFinite(len) || len<=0) continue;
+    addPartRow1d({label: r[2] || "Cut", len, qty: isFinite(qty)&&qty>0?qty:1});
+  }
+}
+document.getElementById("exportPartsCsv2d").addEventListener("click", exportPartsCsv2d);
+document.getElementById("importPartsCsv2dBtn").addEventListener("click", ()=> document.getElementById("importPartsCsv2d").click());
+document.getElementById("importPartsCsv2d").addEventListener("change", (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{ try{ importPartsCsv2d(reader.result); }catch(err){ alert("Could not read CSV: "+err.message); } };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+document.getElementById("exportPartsCsv1d").addEventListener("click", exportPartsCsv1d);
+document.getElementById("importPartsCsv1dBtn").addEventListener("click", ()=> document.getElementById("importPartsCsv1d").click());
+document.getElementById("importPartsCsv1d").addEventListener("change", (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{ try{ importPartsCsv1d(reader.result); }catch(err){ alert("Could not read CSV: "+err.message); } };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+/* ---------------- initial sample data ---------------- */
+addStockRow2d({label:"Melamine 2440x1220", w:2440, h:1220, qty:0});
+addPartRow2d({label:"Side Panel", w:600, h:720, qty:4});
+addPartRow2d({label:"Shelf", w:580, h:400, qty:6});
+addPartRow2d({label:"Door", w:396, h:720, qty:4, grainLocked:true});
+
+addStockRow1d({label:"Aluminum Bar 3000mm", len:3000, qty:0});
+addPartRow1d({label:"Upright", len:900, qty:6});
+addPartRow1d({label:"Cross Brace", len:620, qty:8});
+
+/* ---------------- PWA: offline install support ---------------- */
+if("serviceWorker" in navigator && location.protocol !== "file:"){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+  });
+}
+
+})();
+</script>
+</body>
+</html>
