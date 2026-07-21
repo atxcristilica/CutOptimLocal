@@ -432,7 +432,8 @@ function packGuillotine2D(stocks, parts, kerf, opts){
 
   function placeInSheet(sheet, unit, best){
     const rect = best.rect;
-    const effW = best.w + kerf, effH = best.h + kerf;
+    // clamp kerf at rect edges so no cut is wasted at the border
+    const effW = Math.min(best.w + kerf, rect.w), effH = Math.min(best.h + kerf, rect.h);
     const dw = Math.max(0, rect.w - effW), dh = Math.max(0, rect.h - effH);
     sheet.placements.push({label:unit.label, x:rect.x, y:rect.y, w:best.w, h:best.h, rotated:best.rot});
     sheet.freeRects.splice(best.rectIdx,1);
@@ -508,6 +509,150 @@ function packGuillotine2D(stocks, parts, kerf, opts){
   return {sheets, unplaced};
 }
 
+/* MaxRects (Best Short Side Fit) — keeps overlapping maximal free rectangles,
+   so space lost by guillotine splits is reclaimed. Global best-fit across all
+   open sheets before opening a new one. */
+function packMaxRects2D(stocks, parts, kerf, opts){
+  opts = opts || {};
+  const sortCmp = opts.sortCmp || SORT_KEYS_2D[0].cmp;
+  const preferStockIdx = opts.preferStockIdx!=null ? opts.preferStockIdx : null;
+  const costMode = !!opts.costMode;
+
+  const units = [];
+  parts.forEach((p,pi)=>{
+    for(let i=0;i<p.qty;i++) units.push({label:p.label, w:p.w, h:p.h, allowRotate: p.allowRotate && !p.grainLocked, key:pi+"-"+i});
+  });
+  if(opts.shuffleSeed!=null){
+    // seeded LCG shuffle for reproducible randomized restarts
+    let s = opts.shuffleSeed>>>0;
+    const rnd = ()=>{ s = (s*1664525 + 1013904223)>>>0; return s/4294967296; };
+    units.sort(sortCmp); // start from a good order, then perturb
+    for(let i=units.length-1;i>0;i--){
+      const j = Math.floor(rnd()*(i+1));
+      [units[i],units[j]] = [units[j],units[i]];
+    }
+  } else {
+    units.sort(sortCmp);
+  }
+
+  const stockRemaining = stocks.map((s,idx)=>({...s, idx, remaining: s.qty>0? s.qty : Infinity}));
+  const sheets = [];
+  const unplaced = [];
+
+  function findBest(sheet, unit){
+    let best = null;
+    for(const r of sheet.freeRects){
+      const orients = [{w:unit.w,h:unit.h,rot:false}];
+      if(unit.allowRotate) orients.push({w:unit.h,h:unit.w,rot:true});
+      for(const o of orients){
+        if(r.w >= o.w && r.h >= o.h){
+          const ssf = Math.min(r.w-o.w, r.h-o.h);
+          const lsf = Math.max(r.w-o.w, r.h-o.h);
+          if(!best || ssf < best.ssf || (ssf===best.ssf && lsf < best.lsf)){
+            best = {x:r.x, y:r.y, w:o.w, h:o.h, rot:o.rot, ssf, lsf};
+          }
+        }
+      }
+    }
+    return best;
+  }
+
+  function placeMax(sheet, best, unit){
+    sheet.placements.push({label:unit.label, x:best.x, y:best.y, w:best.w, h:best.h, rotated:best.rot});
+    const used = {
+      x: best.x, y: best.y,
+      w: Math.min(best.w + kerf, sheet.w - best.x),
+      h: Math.min(best.h + kerf, sheet.h - best.y)
+    };
+    const next = [];
+    for(const r of sheet.freeRects){
+      if(used.x >= r.x+r.w || used.x+used.w <= r.x || used.y >= r.y+r.h || used.y+used.h <= r.y){ next.push(r); continue; }
+      if(used.x > r.x) next.push({x:r.x, y:r.y, w:used.x-r.x, h:r.h});
+      if(used.x+used.w < r.x+r.w) next.push({x:used.x+used.w, y:r.y, w:r.x+r.w-(used.x+used.w), h:r.h});
+      if(used.y > r.y) next.push({x:r.x, y:r.y, w:r.w, h:used.y-r.y});
+      if(used.y+used.h < r.y+r.h) next.push({x:r.x, y:used.y+used.h, w:r.w, h:r.y+r.h-(used.y+used.h)});
+    }
+    // prune rects fully contained in another
+    const pruned = [];
+    for(let i=0;i<next.length;i++){
+      let contained = false;
+      for(let j=0;j<next.length;j++){
+        if(i===j) continue;
+        const a=next[i], b=next[j];
+        if(b.x<=a.x && b.y<=a.y && b.x+b.w>=a.x+a.w && b.y+b.h>=a.y+a.h){
+          if(a.x===b.x && a.y===b.y && a.w===b.w && a.h===b.h){ if(j<i){ contained=true; break; } }
+          else { contained=true; break; }
+        }
+      }
+      if(!contained) pruned.push(next[i]);
+    }
+    sheet.freeRects = pruned;
+  }
+
+  function sheetCost(stock){ return (stock.price||0) * (stock.w*stock.h/1e6); }
+
+  function trialScore(stock, sampleUnits){
+    const trial = {w:stock.w, h:stock.h, freeRects:[{x:0,y:0,w:stock.w,h:stock.h}], placements:[]};
+    let usedArea = 0;
+    for(const u of sampleUnits){
+      const b = findBest(trial, u);
+      if(b){ usedArea += b.w*b.h; placeMax(trial, b, u); }
+    }
+    if(costMode){
+      const cost = sheetCost(stock);
+      return cost>0 ? (usedArea/cost) : usedArea*1e9;
+    }
+    return usedArea / (stock.w*stock.h);
+  }
+
+  function openNewSheet(unit, remainingUnits){
+    const candidates = stockRemaining.filter(s=> s.remaining>0 && (
+      (s.w>=unit.w && s.h>=unit.h) || (unit.allowRotate && s.w>=unit.h && s.h>=unit.w)
+    ));
+    if(candidates.length===0) return null;
+    let chosen = null;
+    if(preferStockIdx!=null) chosen = candidates.find(c=> c.idx===preferStockIdx) || null;
+    if(!chosen){
+      chosen = candidates[0];
+      if(candidates.length>1){
+        const sample = remainingUnits.length>150 ? remainingUnits.slice(0,150) : remainingUnits;
+        let bestScore = -1;
+        candidates.forEach(cand=>{
+          const score = trialScore(cand, sample);
+          if(score > bestScore){ bestScore = score; chosen = cand; }
+        });
+      }
+    }
+    chosen.remaining = chosen.remaining===Infinity? Infinity : chosen.remaining-1;
+    const sheet = {stockLabel:chosen.label, w:chosen.w, h:chosen.h, priceRate:chosen.price||0, cost:sheetCost(chosen), freeRects:[{x:0,y:0,w:chosen.w,h:chosen.h}], placements:[]};
+    sheets.push(sheet);
+    return sheet;
+  }
+
+  for(let i=0;i<units.length;i++){
+    const unit = units[i];
+    // global best fit across all open sheets
+    let bestSheet = null, bestPos = null;
+    for(const sheet of sheets){
+      const b = findBest(sheet, unit);
+      if(b && (!bestPos || b.ssf < bestPos.ssf || (b.ssf===bestPos.ssf && b.lsf < bestPos.lsf))){
+        bestSheet = sheet; bestPos = b;
+      }
+    }
+    if(!bestPos){
+      const sheet = openNewSheet(unit, units.slice(i));
+      if(sheet){
+        const b = findBest(sheet, unit);
+        if(b){ bestSheet = sheet; bestPos = b; }
+      }
+    }
+    if(bestPos){ placeMax(bestSheet, bestPos, unit); }
+    else unplaced.push(unit);
+  }
+
+  return {sheets, unplaced};
+}
+
 function stats2D(result){
   let stockArea = 0, usedArea = 0, totalCost = 0;
   result.sheets.forEach(s=>{ stockArea += s.w*s.h; totalCost += s.cost||0; s.placements.forEach(p=> usedArea += p.w*p.h); });
@@ -526,14 +671,35 @@ function runStrategies2D(stocks, parts, kerf){
         result, stats: stats2D(result)
       });
     });
+    const mr = packMaxRects2D(stocks, parts, kerf, {sortCmp: sk.cmp});
+    candidates.push({name: "MaxRects — " + sk.name, result: mr, stats: stats2D(mr)});
   });
+  {
+    // randomized restarts: perturb order, keep the single best outcome
+    const nUnits = parts.reduce((n,p)=>n+p.qty,0);
+    const nRestarts = nUnits<=60 ? 400 : nUnits<=200 ? 120 : 30;
+    let bestR = null, bestS = null;
+    for(let seed=1; seed<=nRestarts; seed++){
+      const r = packMaxRects2D(stocks, parts, kerf, {shuffleSeed: seed});
+      const st = stats2D(r);
+      if(!bestS || st.unplaced < bestS.unplaced ||
+         (st.unplaced===bestS.unplaced && (st.totalCost < bestS.totalCost ||
+         (st.totalCost===bestS.totalCost && (st.sheets < bestS.sheets ||
+         (st.sheets===bestS.sheets && st.wastePct < bestS.wastePct)))))){
+        bestR = r; bestS = st;
+      }
+    }
+    candidates.push({name:"MaxRects — randomized search", result: bestR, stats: bestS});
+  }
   if(hasCost){
-    const result = packGuillotine2D(stocks, parts, kerf, {sortCmp: SORT_KEYS_2D[0].cmp, splitPref: SPLIT_PREFS_2D[0], costMode:true});
-    candidates.push({name:"Lowest cost (auto mix)", result, stats: stats2D(result)});
+    const g = packGuillotine2D(stocks, parts, kerf, {costMode:true});
+    candidates.push({name:"Lowest cost (auto mix)", result: g, stats: stats2D(g)});
+    const m = packMaxRects2D(stocks, parts, kerf, {costMode:true});
+    candidates.push({name:"MaxRects — lowest cost", result: m, stats: stats2D(m)});
   }
   if(stocks.length>1){
     stocks.forEach((s,idx)=>{
-      const result = packGuillotine2D(stocks, parts, kerf, {sortCmp: SORT_KEYS_2D[0].cmp, splitPref: SPLIT_PREFS_2D[0], preferStockIdx: idx});
+      const result = packMaxRects2D(stocks, parts, kerf, {preferStockIdx: idx});
       candidates.push({
         name: "Prefer stock: " + s.label,
         result, stats: stats2D(result)
