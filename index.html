@@ -1264,7 +1264,14 @@ addPartRow1d({label:"Cross Brace", len:620, qty:8});
 /* ---------------- PWA: offline install support ---------------- */
 if("serviceWorker" in navigator && location.protocol !== "file:"){
   window.addEventListener("load", ()=>{
-    navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+    navigator.serviceWorker.register("service-worker.js")
+      .then(reg=>{ reg.update(); })
+      .catch(()=>{});
+  });
+  // when a new service worker takes over, reload once to pick up the new version
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+    if(!reloaded){ reloaded = true; location.reload(); }
   });
 }
 

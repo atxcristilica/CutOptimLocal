@@ -1,4 +1,4 @@
-const CACHE_NAME = "cutoptim-local-v1";
+const CACHE_NAME = "cutoptim-local-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -21,8 +21,29 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Network-first for HTML/navigation so every online load gets the latest
+// version; cache is only a fallback for offline use. Other assets use
+// stale-while-revalidate.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const isHTML = event.request.mode === "navigate" ||
+    (event.request.headers.get("accept") || "").includes("text/html");
+
+  if (isHTML) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((c) => c || caches.match("./index.html")))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const network = fetch(event.request)
